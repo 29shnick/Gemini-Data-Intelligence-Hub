@@ -15,7 +15,7 @@ paths = [ "/" ]
 localPort = 5000
 
 [services.development]
-run = "streamlit run /home/runner/workspace/artifacts/data-analysis-app/app.py --server.port 5000"
+run = "streamlit run /home/runner/workspace/artifacts/data-analysis-app/app.py --server.port 5000 --server.headless true --browser.gatherUsageStats false"
 
 [services.production]
 build = [ "echo", "no-build-needed" ]
