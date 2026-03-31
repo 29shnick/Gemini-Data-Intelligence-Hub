@@ -48,6 +48,25 @@ Every package extends `tsconfig.base.json` which sets `composite: true`. The roo
 - `pnpm run build` — runs `typecheck` first, then recursively runs `build` in all packages that define it
 - `pnpm run typecheck` — runs `tsc --build --emitDeclarationOnly` using project references
 
+## Artifacts
+
+### `artifacts/data-analysis-app` (Streamlit Python App)
+
+A data analysis web app built with Python + Streamlit + Google Gemini AI.
+
+- **Entry**: `artifacts/data-analysis-app/app.py` — main Streamlit application
+- **Theme**: Custom dark theme via `.streamlit/config.toml` and inline CSS
+- **Requirements**: `artifacts/data-analysis-app/requirements.txt` (streamlit, pandas, google-generativeai)
+- **Key Features**:
+  - CSV file uploader
+  - Pandas-based data summary (shape, dtypes, statistics, missing values, categorical breakdowns)
+  - Tabs: Overview | Data Preview | Chat with AI
+  - Gemini-powered chat (uses `gemini-1.5-flash`) with full dataset context
+  - Professional dark theme (#0e1117 background, #4f9cf9 accent)
+- **Registered artifact**: `artifacts/data-analysis` (artifact.toml points to port 5000)
+- **Environment**: `GEMINI_API_KEY` secret required
+- **Run**: `streamlit run /home/runner/workspace/artifacts/data-analysis-app/app.py --server.port 5000`
+
 ## Packages
 
 ### `artifacts/api-server` (`@workspace/api-server`)
