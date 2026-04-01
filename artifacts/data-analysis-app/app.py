@@ -219,7 +219,7 @@ def build_data_context(df: pd.DataFrame) -> str:
 
 
 def ask_gemini(model, question: str, data_context: str, chat_history: list) -> str:
-    system_prompt = f"""You are a skilled data analyst assistant. The user has uploaded a CSV dataset.
+    system_prompt = f"""You are a skilled data analyst assistant. The user has uploaded a spreadsheet or CSV dataset.
 Here is a full summary of the dataset:
 
 --- DATASET CONTEXT ---
@@ -269,7 +269,7 @@ def render_sidebar(df):
 
 def main():
     st.markdown("# 📊 Data Analysis AI")
-    st.markdown("Upload a CSV file and chat with your data using Google Gemini.")
+    st.markdown("Upload a CSV, XLS, or XLSX file and chat with your data using Google Gemini.")
 
     model = get_gemini_model()
     if model is None:
@@ -286,9 +286,9 @@ def main():
         st.session_state.file_name = None
 
     uploaded_file = st.file_uploader(
-        "Drop your CSV file here",
-        type=["csv"],
-        help="Supports standard CSV files with headers",
+        "Drop your file here",
+        type=["csv", "xls", "xlsx"],
+        help="Supports CSV, XLS, and XLSX files with headers",
         label_visibility="collapsed",
     )
 
@@ -298,16 +298,56 @@ def main():
             st.session_state.df = None
             st.session_state.data_context = None
             st.session_state.file_name = uploaded_file.name
+            if "sheet_name" in st.session_state:
+                del st.session_state["sheet_name"]
+
+        file_ext = uploaded_file.name.rsplit(".", 1)[-1].lower()
+        is_excel = file_ext in ("xls", "xlsx")
 
         if st.session_state.df is None:
-            with st.spinner("Loading and analysing your dataset…"):
+            if is_excel:
                 try:
-                    df = pd.read_csv(uploaded_file)
-                    st.session_state.df = df
-                    st.session_state.data_context = build_data_context(df)
+                    xl = pd.ExcelFile(uploaded_file)
+                    sheet_names = xl.sheet_names
                 except Exception as e:
-                    st.error(f"Could not parse CSV: {e}")
+                    st.error(f"Could not open Excel file: {e}")
                     return
+
+                if len(sheet_names) > 1:
+                    selected_sheet = st.selectbox(
+                        "This workbook has multiple sheets — choose one to analyse:",
+                        sheet_names,
+                        key="sheet_name",
+                    )
+                    if st.button("Load sheet"):
+                        with st.spinner("Loading and analysing your dataset…"):
+                            try:
+                                df = xl.parse(selected_sheet)
+                                st.session_state.df = df
+                                st.session_state.data_context = build_data_context(df)
+                            except Exception as e:
+                                st.error(f"Could not parse sheet: {e}")
+                                return
+                    else:
+                        return
+                else:
+                    with st.spinner("Loading and analysing your dataset…"):
+                        try:
+                            df = xl.parse(sheet_names[0])
+                            st.session_state.df = df
+                            st.session_state.data_context = build_data_context(df)
+                        except Exception as e:
+                            st.error(f"Could not parse Excel file: {e}")
+                            return
+            else:
+                with st.spinner("Loading and analysing your dataset…"):
+                    try:
+                        df = pd.read_csv(uploaded_file)
+                        st.session_state.df = df
+                        st.session_state.data_context = build_data_context(df)
+                    except Exception as e:
+                        st.error(f"Could not parse CSV: {e}")
+                        return
 
         df = st.session_state.df
         render_sidebar(df)
@@ -408,9 +448,9 @@ def main():
         st.markdown("""
         <div style="text-align:center; padding: 60px 40px; background:#141929; border: 2px dashed #2e3a5c; border-radius:16px; margin-top:20px;">
             <div style="font-size:3.5rem; margin-bottom:16px;">📂</div>
-            <h2 style="color:#ffffff; margin-bottom:8px;">Upload a CSV to get started</h2>
+            <h2 style="color:#ffffff; margin-bottom:8px;">Upload a file to get started</h2>
             <p style="color:#8892a4; font-size:1rem; max-width:460px; margin:0 auto;">
-                Drop a CSV file above. You'll get an instant summary and a chat interface 
+                Drop a CSV, XLS, or XLSX file above. You'll get an instant summary and a chat interface 
                 powered by Google Gemini to explore your data conversationally.
             </p>
         </div>
