@@ -23,4 +23,4 @@ This application is a conversational data analyst built to bridge the gap betwee
 🎯 Portfolio Context
 I developed this project to demonstrate my transition from Logistics into the IT field. It showcases my ability to move beyond basic data entry into AI-driven automation and cloud-native development, applying the principles learned during my Google Data Analysis and IT Support Professional certificate programs.
 How to save this in GitHub:
-1. On your GitHub repository page, tap the
+
