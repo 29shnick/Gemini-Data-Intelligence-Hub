@@ -341,13 +341,34 @@ def main():
                             return
             else:
                 with st.spinner("Loading and analysing your dataset…"):
-                    try:
-                        df = pd.read_csv(uploaded_file)
-                        st.session_state.df = df
-                        st.session_state.data_context = build_data_context(df)
-                    except Exception as e:
-                        st.error(f"Could not parse CSV: {e}")
+                    df = None
+                    parse_note = None
+                    raw = uploaded_file.read()
+                    for sep in [None, ",", ";", "\t", "|"]:
+                        for bad in ["warn", "skip"]:
+                            try:
+                                df = pd.read_csv(
+                                    io.BytesIO(raw),
+                                    sep=sep,
+                                    on_bad_lines=bad,
+                                    engine="python" if sep is None else "c",
+                                )
+                                if df.shape[1] < 2 and sep is None:
+                                    continue
+                                if bad == "skip":
+                                    parse_note = "⚠️ Some rows with unexpected formatting were skipped during loading."
+                                break
+                            except Exception:
+                                continue
+                        if df is not None and not df.empty:
+                            break
+                    if df is None or df.empty:
+                        st.error("Could not parse this file. Please check that it is a valid CSV.")
                         return
+                    if parse_note:
+                        st.warning(parse_note)
+                    st.session_state.df = df
+                    st.session_state.data_context = build_data_context(df)
 
         df = st.session_state.df
         render_sidebar(df)
