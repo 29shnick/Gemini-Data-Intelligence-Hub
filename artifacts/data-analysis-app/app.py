@@ -3,6 +3,7 @@ import pandas as pd
 import google.generativeai as genai
 import os
 import io
+import pdfplumber
 
 st.set_page_config(
     page_title="Data Analysis AI",
@@ -269,7 +270,7 @@ def render_sidebar(df):
 
 def main():
     st.markdown("# 📊 Data Analysis AI")
-    st.markdown("Upload a CSV, XLS, or XLSX file and chat with your data using Google Gemini.")
+    st.markdown("Upload a CSV, XLS, XLSX, or PDF file and chat with your data using Google Gemini.")
 
     model = get_gemini_model()
     if model is None:
@@ -287,8 +288,8 @@ def main():
 
     uploaded_file = st.file_uploader(
         "Drop your file here",
-        type=["csv", "xls", "xlsx"],
-        help="Supports CSV, XLS, and XLSX files with headers",
+        type=["csv", "xls", "xlsx", "pdf"],
+        help="Supports CSV, XLS, XLSX, and PDF files",
         label_visibility="collapsed",
     )
 
@@ -300,12 +301,64 @@ def main():
             st.session_state.file_name = uploaded_file.name
             if "sheet_name" in st.session_state:
                 del st.session_state["sheet_name"]
+            if "pdf_table_idx" in st.session_state:
+                del st.session_state["pdf_table_idx"]
 
         file_ext = uploaded_file.name.rsplit(".", 1)[-1].lower()
         is_excel = file_ext in ("xls", "xlsx")
+        is_pdf = file_ext == "pdf"
 
         if st.session_state.df is None:
-            if is_excel:
+            if is_pdf:
+                with st.spinner("Extracting tables from PDF…"):
+                    try:
+                        raw = uploaded_file.read()
+                        with pdfplumber.open(io.BytesIO(raw)) as pdf:
+                            all_tables = []
+                            for page_num, page in enumerate(pdf.pages, start=1):
+                                for tbl in page.extract_tables():
+                                    if tbl and len(tbl) > 1:
+                                        all_tables.append((page_num, tbl))
+                    except Exception as e:
+                        st.error(f"Could not read PDF: {e}")
+                        return
+
+                if not all_tables:
+                    st.error("No tables were found in this PDF. Only PDFs containing structured tables can be analysed.")
+                    return
+
+                if len(all_tables) == 1:
+                    selected_idx = 0
+                else:
+                    options = [f"Table {i+1} (page {pn}, {len(t)} rows)" for i, (pn, t) in enumerate(all_tables)]
+                    selected_label = st.selectbox(
+                        f"Found {len(all_tables)} tables — choose one to analyse:",
+                        options,
+                        key="pdf_table_idx",
+                    )
+                    selected_idx = options.index(selected_label)
+                    if not st.button("Load table"):
+                        return
+
+                _, raw_table = all_tables[selected_idx]
+                try:
+                    header = raw_table[0]
+                    rows = raw_table[1:]
+                    df = pd.DataFrame(rows, columns=header)
+                    df = df.replace("", pd.NA)
+                    df = df.infer_objects()
+                    for col in df.columns:
+                        try:
+                            df[col] = pd.to_numeric(df[col])
+                        except (ValueError, TypeError):
+                            pass
+                    st.session_state.df = df
+                    st.session_state.data_context = build_data_context(df)
+                except Exception as e:
+                    st.error(f"Could not parse table: {e}")
+                    return
+
+            elif is_excel:
                 try:
                     xl = pd.ExcelFile(uploaded_file)
                     sheet_names = xl.sheet_names
@@ -471,7 +524,7 @@ def main():
             <div style="font-size:3.5rem; margin-bottom:16px;">📂</div>
             <h2 style="color:#ffffff; margin-bottom:8px;">Upload a file to get started</h2>
             <p style="color:#8892a4; font-size:1rem; max-width:460px; margin:0 auto;">
-                Drop a CSV, XLS, or XLSX file above. You'll get an instant summary and a chat interface 
+                Drop a CSV, XLS, XLSX, or PDF file above. You'll get an instant summary and a chat interface 
                 powered by Google Gemini to explore your data conversationally.
             </p>
         </div>
