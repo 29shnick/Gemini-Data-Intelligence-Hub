@@ -13,6 +13,20 @@ interface DiscoveredComponent {
   importPath: string;
 }
 
+const UNSAFE_JS_CHAR_MAP: Record<string, string> = {
+  "<": "\\u003C",
+  ">": "\\u003E",
+  "/": "\\u002F",
+  "\u2028": "\\u2028",
+  "\u2029": "\\u2029",
+};
+
+const UNSAFE_JS_CHAR_REGEX = /[<>/\u2028\u2029]/g;
+
+function escapeUnsafeJsChars(value: string): string {
+  return value.replace(UNSAFE_JS_CHAR_REGEX, (ch) => UNSAFE_JS_CHAR_MAP[ch] ?? ch);
+}
+
 export function mockupPreviewPlugin(): Plugin {
   let root = "";
   let currentSource = "";
@@ -55,7 +69,7 @@ export function mockupPreviewPlugin(): Plugin {
     const entries = components
       .map(
         (c) =>
-          `  ${JSON.stringify(c.globKey)}: () => import(${JSON.stringify(c.importPath)})`,
+          `  ${escapeUnsafeJsChars(JSON.stringify(c.globKey))}: () => import(${escapeUnsafeJsChars(JSON.stringify(c.importPath))})`,
       )
       .join(",\n");
 
